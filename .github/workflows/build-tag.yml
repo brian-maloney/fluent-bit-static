@@ -1,0 +1,96 @@
+name: Build Tag
+
+on: 
+  schedule:
+    - cron: '50 5 * * *'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build'     
+        required: false
+
+jobs:
+  select-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      build-tag: ${{ format('{0}{1}', steps.find-latest.outputs.release, github.event.inputs.tag) }}
+    steps:
+      - name: Find latest release
+        if: ${{ !(github.event.inputs.tag) }}
+        id: find-latest
+        uses: pozetroninc/github-action-get-latest-release@v0.5.0
+        with:
+          repository: fluent/fluent-bit
+
+  check-release:
+    runs-on: ubuntu-latest
+    needs: select-tag
+    outputs:
+      outcome: ${{ steps.exists.outcome }}
+    env:
+      GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+    steps:
+      - name: Check if release exists
+        id: exists
+        continue-on-error: true
+        uses: cardinalby/git-get-release-action@1.1.1
+        with:
+          tag: ${{ needs.select-tag.outputs.build-tag }}
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [ select-tag, check-release ]
+    if: ${{ (needs.check-release.outputs.outcome == 'failure') }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+        
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push multi-platform
+        run: docker buildx build . --push --file Dockerfile --platform 'linux/amd64,linux/386,linux/arm64,linux/arm/v7' --pull --build-arg TAG="${{needs.select-tag.outputs.build-tag}}" -t "ghcr.io/$GITHUB_REPOSITORY:${{needs.select-tag.outputs.build-tag}}"
+
+      - name: Make bin directory
+        run: mkdir /tmp/fb-bins
+
+      - name: Extract binaries
+        run: |
+          tag="ghcr.io/$GITHUB_REPOSITORY:${{needs.select-tag.outputs.build-tag}}"
+          for digest in $(docker manifest inspect "$tag" | jq -r '.manifests[].digest')
+          do
+            docker pull "$tag@$digest"
+            docker save "$tag@$digest" | tar -xOf - --wildcards "*.tar" | tar -xvf -
+          done
+          md5sum fluent* > MD5SUMS
+          sha1sum fluent* > SHA1SUMS
+          sha256sum fluent* > SHA256SUMS
+        working-directory: /tmp/fb-bins
+      
+      - name: Prepare release body
+        run: |
+           curl -s "https://api.github.com/repos/fluent/fluent-bit/releases" | jq -r '.[] | select(.tag_name == "${{needs.select-tag.outputs.build-tag}}") | .body' > /tmp/body.md
+           echo "" >> /tmp/body.md
+           echo "Binary SHA1 sums:" >> /tmp/body.md
+           echo '```' >> /tmp/body.md
+           cat SHA1SUMS >> /tmp/body.md
+           echo '```' >> /tmp/body.md
+        working-directory: /tmp/fb-bins
+
+      - name: Publish release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "/tmp/fb-bins/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{needs.select-tag.outputs.build-tag}}
+          bodyFile: /tmp/body.md
