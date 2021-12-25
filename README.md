@@ -13,3 +13,7 @@ Since I was using Docker buildx to enable building on many platforms via GitHub 
 These images/binaries are built using the `debian` container image, which provides the compatibility needed to build successfully on all of Fluent Bit's supported architectures.  Because these builds are statically linked, they represent a point-in-time version of the libraries which are linked into the build.  If a vulnerability is discovered in a linked library, that vulnerability will persist until a new build is created against the patched library.  Since builds are automated this may not occur until the next upstream release.
 
 Since the typical use case for Fluent Bit is to read locally and make outgoing connections to deliver logs to a platform, this helps to mitigate remote code execution vulnerabilities.
+
+## Known Limitations
+
+The `systemd` input plugin is not presently supported due to a lack of availability of a static libsystemd library in Debian.  This is documented in this Debian [bug report](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=915566) but was not added due to lack of demand.  In the future this support may be able to be added by compiling libsystemd as part of the build process.
