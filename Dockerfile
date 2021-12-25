@@ -14,7 +14,7 @@ WORKDIR /tmp/build
 RUN curl -L "https://api.github.com/repos/fluent/fluent-bit/tarball/$TAG" | tar -xzf -
 
 RUN cd fluent*/build && \
-    cmake -DFLB_SHARED_LIB=No -DCMAKE_FIND_LIBRARY_SUFFIXES=".a" -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS="-static" .. && \
+    cmake -DFLB_DEBUG=No -DFLB_RELEASE=Yes -DFLB_SHARED_LIB=No -DCMAKE_FIND_LIBRARY_SUFFIXES=".a" -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS="-static" .. && \
     make && \
     strip bin/fluent-bit && \
     cp bin/fluent-bit "/tmp/fluent-bit-${TAG}-${TARGETARCH}"
