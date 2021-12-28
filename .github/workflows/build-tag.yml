@@ -13,6 +13,8 @@ jobs:
   keepalive:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+
       - name: Repository keepalive
         uses: gautamkrishnar/keepalive-workflow@1.0.6
         with:
