@@ -4,7 +4,7 @@ ARG TARGETARCH
 RUN test -n "$TAG" || (echo "TAG not set" && false)
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt update && apt install -y build-essential cmake flex bison curl
+RUN apt update && apt install -y build-essential cmake flex bison curl libyaml-dev
 
 RUN mkdir /tmp/build && chown nobody:nogroup /tmp/build
 
