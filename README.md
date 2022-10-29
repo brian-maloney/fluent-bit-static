@@ -17,3 +17,5 @@ Since the typical use case for Fluent Bit is to read locally and make outgoing c
 ## Known Limitations
 
 The `systemd` input plugin is not presently supported due to a lack of availability of a static libsystemd library in Debian.  This is documented in this Debian [bug report](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=915566) but was not added due to lack of demand.  In the future this support may be able to be added by compiling libsystemd as part of the build process.
+
+The WASM and Lua functionality are disabled from version `2.0.0` onward as they break static linking by causing the build process to attempt to link shared libraries into the static object.
