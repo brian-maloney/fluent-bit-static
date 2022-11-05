@@ -1,4 +1,4 @@
-FROM debian:latest as build
+FROM debian:bookworm as build
 ARG TAG
 ARG TARGETARCH
 RUN test -n "$TAG" || (echo "TAG not set" && false)
