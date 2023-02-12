@@ -28,7 +28,7 @@ jobs:
       - name: Find latest release
         if: ${{ !(github.event.inputs.tag) }}
         id: find-latest
-        uses: rez0n/actions-github-release@v1.8
+        uses: brian-maloney/actions-github-release@main
         env:
           repository: "fluent/fluent-bit"
           type: "stable"
