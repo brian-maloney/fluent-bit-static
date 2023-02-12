@@ -30,8 +30,8 @@ jobs:
         id: find-latest
         uses: rez0n/actions-github-release@v1.8
         with:
-          repository: fluent/fluent-bit
-          type: stable
+          repository: "fluent/fluent-bit"
+          type: "stable"
           token: ${{secrets.GITHUB_TOKEN}}
 
   check-release:
