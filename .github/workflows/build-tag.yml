@@ -70,6 +70,9 @@ jobs:
 
       - name: Build and push multi-platform
         run: docker buildx build . --push --file Dockerfile --platform 'linux/amd64,linux/386,linux/arm64,linux/arm/v7' --pull --build-arg TAG="${{needs.select-tag.outputs.build-tag}}" -t "ghcr.io/$GITHUB_REPOSITORY:${{needs.select-tag.outputs.build-tag}}"
+        
+      - name: Sleep for one minute
+        run: sleep 60
 
       - name: Make bin directory
         run: mkdir /tmp/fb-bins
