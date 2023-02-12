@@ -28,7 +28,7 @@ jobs:
       - name: Find latest release
         if: ${{ !(github.event.inputs.tag) }}
         id: find-latest
-        uses: pozetroninc/github-action-get-latest-release@v0.5.0
+        uses: rez0n/actions-github-release@v1.8
         with:
           repository: fluent/fluent-bit
 
