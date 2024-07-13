@@ -71,7 +71,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push multi-platform
-        run: docker buildx build . --push --file Dockerfile --platform 'linux/amd64,linux/386,linux/arm64,linux/arm/v7' --pull --provenance false --build-arg TAG="${{needs.select-tag.outputs.build-tag}}" -t "ghcr.io/$GITHUB_REPOSITORY:${{needs.select-tag.outputs.build-tag}}"
+        run: docker buildx build . --push --file Dockerfile --platform 'linux/amd64' --pull --provenance false --build-arg TAG="${{needs.select-tag.outputs.build-tag}}" -t "ghcr.io/$GITHUB_REPOSITORY:${{needs.select-tag.outputs.build-tag}}"
         
       - name: Make bin directory
         run: mkdir /tmp/fb-bins
@@ -82,7 +82,7 @@ jobs:
           for digest in $(docker manifest inspect "$tag" | jq -r '.manifests[].digest')
           do
             docker pull "$tag@$digest"
-            docker save "$tag@$digest" | tar -xOf - --wildcards "*.tar" | tar -xvf -
+            bash extract-fb-bin.sh "$tag@$digest"
           done
           md5sum fluent* > MD5SUMS
           sha1sum fluent* > SHA1SUMS
@@ -97,12 +97,13 @@ jobs:
            echo '```' >> /tmp/body.md
            cat SHA1SUMS >> /tmp/body.md
            echo '```' >> /tmp/body.md
+           cat /tmp/body.md
         working-directory: /tmp/fb-bins
 
-      - name: Publish release
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "/tmp/fb-bins/*"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{needs.select-tag.outputs.build-tag}}
-          bodyFile: /tmp/body.md
+      # - name: Publish release
+      #   uses: ncipollo/release-action@v1
+      #   with:
+      #     artifacts: "/tmp/fb-bins/*"
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     tag: ${{needs.select-tag.outputs.build-tag}}
+      #     bodyFile: /tmp/body.md
