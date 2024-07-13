@@ -96,13 +96,12 @@ jobs:
            echo '```' >> /tmp/body.md
            cat SHA1SUMS >> /tmp/body.md
            echo '```' >> /tmp/body.md
-           cat /tmp/body.md
         working-directory: /tmp/fb-bins
 
-      # - name: Publish release
-      #   uses: ncipollo/release-action@v1
-      #   with:
-      #     artifacts: "/tmp/fb-bins/*"
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     tag: ${{needs.select-tag.outputs.build-tag}}
-      #     bodyFile: /tmp/body.md
+      - name: Publish release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "/tmp/fb-bins/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{needs.select-tag.outputs.build-tag}}
+          bodyFile: /tmp/body.md
