@@ -11,7 +11,7 @@ OUTER_TAR="$1"
 TMP_DIR=$(mktemp -d)
 
 # Extract the docker image into the temporary directory
-docker save "$1" | tar -x -C "$TMP_DIR" -
+docker save "$1" | tar -x -C "$TMP_DIR" -f -
 
 # Find the inner tar file that contains a file starting with 'fluent-bit'
 INNER_TAR=""
