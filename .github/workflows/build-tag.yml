@@ -84,13 +84,12 @@ jobs:
             docker pull "$tag@$digest"
             bash extract-fb-bin.sh "$tag@$digest"
           done
-          md5sum fluent* > MD5SUMS
-          sha1sum fluent* > SHA1SUMS
-          sha256sum fluent* > SHA256SUMS
-        working-directory: /tmp/fb-bins
       
       - name: Prepare release body
         run: |
+           md5sum fluent* > MD5SUMS
+           sha1sum fluent* > SHA1SUMS
+           sha256sum fluent* > SHA256SUMS
            curl -s "https://api.github.com/repos/fluent/fluent-bit/releases" | jq -r '.[] | select(.tag_name == "${{needs.select-tag.outputs.build-tag}}") | .body' > /tmp/body.md
            echo "" >> /tmp/body.md
            echo "Binary SHA1 sums:" >> /tmp/body.md
