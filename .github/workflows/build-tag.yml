@@ -71,7 +71,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push multi-platform
-        run: docker buildx build . --push --file Dockerfile --platform 'linux/amd64' --pull --provenance false --build-arg TAG="${{needs.select-tag.outputs.build-tag}}" -t "ghcr.io/$GITHUB_REPOSITORY:${{needs.select-tag.outputs.build-tag}}"
+        run: docker buildx build . --push --file Dockerfile --platform 'linux/amd64,linux/386' --pull --provenance false --build-arg TAG="${{needs.select-tag.outputs.build-tag}}" -t "ghcr.io/$GITHUB_REPOSITORY:${{needs.select-tag.outputs.build-tag}}"
         
       - name: Make bin directory
         run: mkdir /tmp/fb-bins
