@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: select-tag
     outputs:
-      outcome: ${{ steps.exists.outcome }}
+      outcome: failure
     env:
       GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
     steps:
