@@ -49,16 +49,13 @@ jobs:
         with:
           tag: ${{ needs.select-tag.outputs.build-tag }}
 
-  build:
-    runs-on: ubuntu-latest
+  build-x86:
+    runs-on: ubuntu-24.04
     needs: [ select-tag, check-release ]
-    if: ${{ (needs.check-release.outputs.outcome == 'failure') }}
+    if: ${{ needs.check-release.outputs.outcome == 'failure' }}
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-        
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v2
@@ -70,38 +67,114 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push multi-platform
-        run: docker buildx build . --push --file Dockerfile --platform 'linux/amd64,linux/386,linux/arm64,linux/arm/v7' --pull --provenance false --build-arg TAG="${{needs.select-tag.outputs.build-tag}}" -t "ghcr.io/$GITHUB_REPOSITORY:${{needs.select-tag.outputs.build-tag}}"
-        
-      - name: Make bin directory
-        run: mkdir /tmp/fb-bins
+      - name: Build and push images
+        run: |
+          docker buildx build . --push --file Dockerfile \
+            --platform 'linux/amd64,linux/386' --pull --provenance false \
+            --build-arg TAG="${{ needs.select-tag.outputs.build-tag }}" \
+            -t "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
+
+      - name: Create bin directory
+        run: mkdir -p /tmp/fb-bins
 
       - name: Extract binaries
         run: |
-          tag="ghcr.io/$GITHUB_REPOSITORY:${{needs.select-tag.outputs.build-tag}}"
-          for digest in $(docker manifest inspect "$tag" | jq -r '.manifests[].digest')
-          do
+          tag="ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
+          for digest in $(docker manifest inspect "$tag" | jq -r '.manifests[].digest'); do
             docker pull "$tag@$digest"
             bash extract-fb-bin.sh "$tag@$digest"
           done
-      
+
+      - name: Upload x86 binaries artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fb-bins-x86
+          path: /tmp/fb-bins
+
+  build-arm:
+    runs-on: ubuntu-24.04-arm
+    needs: [ select-tag, check-release ]
+    if: ${{ needs.check-release.outputs.outcome == 'failure' }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ARM images
+        run: |
+          docker buildx build . --push --file Dockerfile \
+            --platform 'linux/arm64,linux/arm/v7' --pull --provenance false \
+            --build-arg TAG="${{ needs.select-tag.outputs.build-tag }}" \
+            -t "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
+
+      - name: Create bin directory
+        run: mkdir -p /tmp/fb-bins
+
+      - name: Extract binaries
+        run: |
+          tag="ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
+          for digest in $(docker manifest inspect "$tag" | jq -r '.manifests[].digest'); do
+            docker pull "$tag@$digest"
+            bash extract-fb-bin.sh "$tag@$digest"
+          done
+
+      - name: Upload ARM binaries artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fb-bins-arm
+          path: /tmp/fb-bins
+
+  publish-release:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    needs: [ build-x86, build-arm ]
+    steps:
+      - name: Download x86 binaries artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: fb-bins-x86
+          path: /tmp/fb-bins-x86
+
+      - name: Download ARM binaries artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: fb-bins-arm
+          path: /tmp/fb-bins-arm
+
+      - name: Merge binaries
+        run: |
+          mkdir -p /tmp/fb-bins
+          cp -a /tmp/fb-bins-x86/. /tmp/fb-bins/
+          cp -a /tmp/fb-bins-arm/. /tmp/fb-bins/
+
       - name: Prepare release body
         run: |
-           md5sum fluent* > MD5SUMS
-           sha1sum fluent* > SHA1SUMS
-           sha256sum fluent* > SHA256SUMS
-           curl -s "https://api.github.com/repos/fluent/fluent-bit/releases" | jq -r '.[] | select(.tag_name == "${{needs.select-tag.outputs.build-tag}}") | .body' > /tmp/body.md
-           echo "" >> /tmp/body.md
-           echo "Binary SHA1 sums:" >> /tmp/body.md
-           echo '```' >> /tmp/body.md
-           cat SHA1SUMS >> /tmp/body.md
-           echo '```' >> /tmp/body.md
-        working-directory: /tmp/fb-bins
+          cd /tmp/fb-bins
+          md5sum fluent* > MD5SUMS
+          sha1sum fluent* > SHA1SUMS
+          sha256sum fluent* > SHA256SUMS
+          curl -s "https://api.github.com/repos/fluent/fluent-bit/releases" \
+            | jq -r '.[] | select(.tag_name == "${{ needs.select-tag.outputs.build-tag }}") | .body' \
+            > /tmp/body.md
+          echo "" >> /tmp/body.md
+          echo "Binary SHA1 sums:" >> /tmp/body.md
+          echo '```' >> /tmp/body.md
+          cat SHA1SUMS >> /tmp/body.md
+          echo '```' >> /tmp/body.md
 
       - name: Publish release
         uses: ncipollo/release-action@v1
         with:
           artifacts: "/tmp/fb-bins/*"
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{needs.select-tag.outputs.build-tag}}
+          tag: ${{ needs.select-tag.outputs.build-tag }}
           bodyFile: /tmp/body.md
