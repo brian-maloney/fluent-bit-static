@@ -136,7 +136,7 @@ jobs:
   publish-release:
     if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
-    needs: [ build-x86, build-arm ]
+    needs: [ select-tag, build-x86, build-arm ]
     steps:
       - name: Download x86 binaries artifact
         uses: actions/download-artifact@v4
