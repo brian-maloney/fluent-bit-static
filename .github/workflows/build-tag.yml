@@ -67,17 +67,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push x86 images
+      - name: Build and push images
         run: |
           docker buildx build . --push --file Dockerfile \
             --platform 'linux/amd64,linux/386' --pull --provenance false \
             --build-arg TAG="${{ needs.select-tag.outputs.build-tag }}" \
             -t "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
 
-      - name: Create bin directory for x86
+      - name: Create bin directory
         run: mkdir -p /tmp/fb-bins
 
-      - name: Extract x86 binaries
+      - name: Extract binaries
         run: |
           tag="ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
           for digest in $(docker manifest inspect "$tag" | jq -r '.manifests[].digest'); do
@@ -116,10 +116,10 @@ jobs:
             --build-arg TAG="${{ needs.select-tag.outputs.build-tag }}" \
             -t "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
 
-      - name: Create bin directory for ARM
+      - name: Create bin directory
         run: mkdir -p /tmp/fb-bins
 
-      - name: Extract ARM binaries
+      - name: Extract binaries
         run: |
           tag="ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
           for digest in $(docker manifest inspect "$tag" | jq -r '.manifests[].digest'); do
@@ -128,7 +128,7 @@ jobs:
           done
 
       - name: Upload ARM binaries artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: fb-bins-arm
           path: /tmp/fb-bins
@@ -138,13 +138,13 @@ jobs:
     needs: [ build-x86, build-arm ]
     steps:
       - name: Download x86 binaries artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: fb-bins-x86
           path: /tmp/fb-bins-x86
 
       - name: Download ARM binaries artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: fb-bins-arm
           path: /tmp/fb-bins-arm
