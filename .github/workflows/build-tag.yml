@@ -60,19 +60,15 @@ jobs:
           - name: i386
             runs_on: ubuntu-24.04
             platform: "linux/386"
-            artifact: fb-bins-i386
           - name: amd64
             runs_on: ubuntu-24.04
             platform: "linux/amd64"
-            artifact: fb-bins-amd64
           - name: armv7
             runs_on: ubuntu-24.04-arm
             platform: "linux/arm/v7"
-            artifact: fb-bins-armv7
           - name: arm64
             runs_on: ubuntu-24.04-arm
             platform: "linux/arm64"
-            artifact: fb-bins-arm64
     steps:
       - uses: actions/checkout@v3
 
@@ -80,35 +76,18 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@v2
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push images
         run: |
-          docker buildx build . --file Dockerfile --load \
-            --platform '${{ matrix.arch.platform }}' --pull --provenance false \
+          docker buildx build . --file Dockerfile --platform '${{ matrix.arch.platform }}' --pull \
             --build-arg TAG="${{ needs.select-tag.outputs.build-tag }}" \
-            -t "fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}"
-
-      - name: Export Docker image to file
-        run: |
-          docker save "fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}" -o "fluent-bit-static_${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}.tar"
-
-      - name: Upload Docker image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-image-${{ matrix.arch.name }}
-          path: "fluent-bit-static_${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}.tar"
-
-      - name: Create bin directory
-        run: mkdir -p /tmp/fb-bins
-
-      - name: Extract binaries
-        run: |
-          bash extract-fb-bin.sh "fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}"
-
-      - name: Upload binaries artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.arch.artifact }}
-          path: /tmp/fb-bins
+            -t "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}" --push
 
   publish-release:
     runs-on: ubuntu-latest
@@ -121,38 +100,30 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download i386 binaries artifact
-        uses: actions/download-artifact@v4
-        with:
-          path: /tmp/artifacts
-
       - name: Create and push multi-architecture Docker image
         run: |
-          # Load Docker images from artifact tar files
-          for file in /tmp/artifacts/docker-image-*/*.tar; do
-            docker load -i "$file"
-          done
-          # Create a multi-arch image manifest
-          docker manifest create "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}" \
-            fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-i386 \
-            fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-amd64 \
-            fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-armv7 \
-            fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-arm64
-          # Annotate each image with its architecture details
-          # docker manifest annotate "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}" fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-i386 --os linux --arch 386
-          # docker manifest annotate "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}" fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-amd64 --os linux --arch amd64
-          # docker manifest annotate "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}" fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-armv7 --os linux --arch arm --variant v7
-          # docker manifest annotate "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}" fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-arm64 --os linux --arch arm64
-          # Push the multi-architecture image to the registry
-          echo "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
-          docker manifest push "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
+          docker manifest create "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}" \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-i386 \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-amd64 \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-armv7 \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-arm64
+          docker manifest annotate "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}" \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-i386 --os linux --arch 386
+          docker manifest annotate "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}" \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-amd64 --os linux --arch amd64
+          docker manifest annotate "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}" \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-armv7 --os linux --arch arm --variant v7
+          docker manifest annotate "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}" \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-arm64 --os linux --arch arm64
+          docker manifest push "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}"
 
-      - name: Merge binaries
+      - name: Extract binaries
         run: |
-          ls -alF /tmp/artifacts
-          mkdir -p /tmp/fb-bins
-          cp /tmp/artifacts/fb-bins-*/* /tmp/fb-bins/
-          ls -alF /tmp/fb-bins
+          tag="ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}"
+          for digest in $(docker manifest inspect "$tag" | jq -r '.manifests[].digest'); do
+            docker pull "$tag@$digest"
+            bash extract-fb-bin.sh "$tag@$digest"
+          done
 
       - name: Prepare release body
         run: |
