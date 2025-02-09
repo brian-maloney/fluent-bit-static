@@ -89,7 +89,7 @@ jobs:
 
       - name: Build and push images
         run: |
-          docker buildx build . --file Dockerfile \
+          docker buildx build . --file Dockerfile --load \
             --platform '${{ matrix.arch.platform }}' --pull --provenance false \
             --build-arg TAG="${{ needs.select-tag.outputs.build-tag }}" \
             -t "fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}"
