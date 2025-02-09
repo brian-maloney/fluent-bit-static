@@ -90,7 +90,7 @@ jobs:
       - name: Build and push images
         run: |
           docker buildx build . --push --file Dockerfile \
-            --platform '${{ matrix.arch.platforms }}' --pull --provenance false \
+            --platform '${{ matrix.arch.platform }}' --pull --provenance false \
             --build-arg TAG="${{ needs.select-tag.outputs.build-tag }}" \
             -t "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
 
