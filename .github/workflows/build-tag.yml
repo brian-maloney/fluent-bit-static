@@ -120,6 +120,9 @@ jobs:
             ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-arm64 --os linux --arch arm64
           docker manifest push "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}"
 
+      - name: Create bin directory
+        run: mkdir -p /tmp/fb-bins
+
       - name: Extract binaries
         run: |
           tag="ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}"
