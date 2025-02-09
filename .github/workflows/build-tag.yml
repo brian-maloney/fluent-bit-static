@@ -89,21 +89,17 @@ jobs:
 
       - name: Build and push images
         run: |
-          docker buildx build . --push --file Dockerfile \
+          docker buildx build . --file Dockerfile \
             --platform '${{ matrix.arch.platform }}' --pull --provenance false \
             --build-arg TAG="${{ needs.select-tag.outputs.build-tag }}" \
-            -t "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
+            -t "fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}"
 
       - name: Create bin directory
         run: mkdir -p /tmp/fb-bins
 
       - name: Extract binaries
         run: |
-          tag="ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
-          for digest in $(docker manifest inspect "$tag" | jq -r '.manifests[].digest'); do
-            docker pull "$tag@$digest"
-            bash extract-fb-bin.sh "$tag@$digest"
-          done
+          bash extract-fb-bin.sh "fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}"
 
       - name: Upload binaries artifact
         uses: actions/upload-artifact@v4
