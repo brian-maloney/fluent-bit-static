@@ -144,6 +144,7 @@ jobs:
           docker manifest annotate "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}" fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-armv7 --os linux --arch arm --variant v7
           docker manifest annotate "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}" fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-arm64 --os linux --arch arm64
           # Push the multi-architecture image to the registry
+          echo "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
           docker manifest push "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
 
       - name: Merge binaries
