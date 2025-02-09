@@ -89,13 +89,13 @@ jobs:
 
       - name: Export Docker image to file
         run: |
-          docker save "fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}" -o "image_fluent-bit-static_${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}.tar"
+          docker save "fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}" -o "fluent-bit-static_${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}.tar"
 
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
         with:
           name: docker-image-${{ matrix.arch.name }}
-          path: "image_fluent-bit-static_${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}.tar"
+          path: "fluent-bit-static_${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}.tar"
 
       - name: Create bin directory
         run: mkdir -p /tmp/fb-bins
@@ -126,11 +126,31 @@ jobs:
         with:
           path: /tmp/artifacts
 
+      - name: Create and push multi-architecture Docker image
+        run: |
+          # Load Docker images from artifact tar files
+          for file in /tmp/artifacts/docker-image-*.tar; do
+            docker load -i "$file"
+          done
+          # Create a multi-arch image manifest
+          docker manifest create "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}" \
+            fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-i386 \
+            fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-amd64 \
+            fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-armv7 \
+            fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-arm64
+          # Annotate each image with its architecture details
+          docker manifest annotate "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}" fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-i386 --os linux --arch 386
+          docker manifest annotate "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}" fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-amd64 --os linux --arch amd64
+          docker manifest annotate "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}" fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-armv7 --os linux --arch arm --variant v7
+          docker manifest annotate "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}" fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-arm64 --os linux --arch arm64
+          # Push the multi-architecture image to the registry
+          docker manifest push "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
+
       - name: Merge binaries
         run: |
           ls -alF /tmp/artifacts
           mkdir -p /tmp/fb-bins
-          cp /tmp/artifacts/fluent-bit* /tmp/fb-bins/
+          cp /tmp/artifacts/fb-bins-*/* /tmp/fb-bins/
           ls -alF /tmp/fb-bins
 
       - name: Prepare release body
