@@ -49,10 +49,26 @@ jobs:
         with:
           tag: ${{ needs.select-tag.outputs.build-tag }}
 
-  build-x86:
-    runs-on: ubuntu-24.04
+  build:
+    name: Build ${{ matrix.arch.name }} images
+    runs-on: ${{ matrix.arch.runs_on }}
     needs: [ select-tag, check-release ]
     if: ${{ needs.check-release.outputs.outcome == 'failure' }}
+    strategy:
+      matrix:
+        arch:
+          - name: i386
+            runs_on: ubuntu-24.04
+            platform: "linux/386"
+          - name: amd64
+            runs_on: ubuntu-24.04
+            platform: "linux/amd64"
+          - name: armv7
+            runs_on: ubuntu-24.04-arm
+            platform: "linux/arm/v7"
+          - name: arm64
+            runs_on: ubuntu-24.04-arm
+            platform: "linux/arm64"
     steps:
       - uses: actions/checkout@v3
 
@@ -70,37 +86,15 @@ jobs:
       - name: Build and push images
         run: |
           docker buildx build . --push --file Dockerfile \
-            --platform 'linux/amd64,linux/386' --pull --provenance false \
+            --platform '${{ matrix.arch.platform }}' --pull --provenance false \
             --build-arg TAG="${{ needs.select-tag.outputs.build-tag }}" \
-            -t "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
+            -t "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}" --push
 
-      - name: Create bin directory
-        run: mkdir -p /tmp/fb-bins
-
-      - name: Extract binaries
-        run: |
-          tag="ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
-          for digest in $(docker manifest inspect "$tag" | jq -r '.manifests[].digest'); do
-            docker pull "$tag@$digest"
-            bash extract-fb-bin.sh "$tag@$digest"
-          done
-
-      - name: Upload x86 binaries artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: fb-bins-x86
-          path: /tmp/fb-bins
-
-  build-arm:
-    runs-on: ubuntu-24.04-arm
-    needs: [ select-tag, check-release ]
-    if: ${{ needs.check-release.outputs.outcome == 'failure' }}
+  publish-release:
+    runs-on: ubuntu-latest
+    needs: [ select-tag, build ]
     steps:
       - uses: actions/checkout@v3
-
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v2
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
@@ -109,52 +103,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push ARM images
+      - name: Create and push multi-architecture Docker image
         run: |
-          docker buildx build . --push --file Dockerfile \
-            --platform 'linux/arm64,linux/arm/v7' --pull --provenance false \
-            --build-arg TAG="${{ needs.select-tag.outputs.build-tag }}" \
-            -t "ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
+          docker manifest create "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}" \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-i386 \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-amd64 \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-armv7 \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-arm64
+          docker manifest annotate "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}" \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-i386 --os linux --arch 386
+          docker manifest annotate "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}" \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-amd64 --os linux --arch amd64
+          docker manifest annotate "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}" \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-armv7 --os linux --arch arm --variant v7
+          docker manifest annotate "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}" \
+            ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-arm64 --os linux --arch arm64
+          docker manifest push "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}"
 
       - name: Create bin directory
         run: mkdir -p /tmp/fb-bins
 
       - name: Extract binaries
         run: |
-          tag="ghcr.io/$GITHUB_REPOSITORY:${{ needs.select-tag.outputs.build-tag }}"
+          tag="ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}"
           for digest in $(docker manifest inspect "$tag" | jq -r '.manifests[].digest'); do
             docker pull "$tag@$digest"
             bash extract-fb-bin.sh "$tag@$digest"
           done
-
-      - name: Upload ARM binaries artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: fb-bins-arm
-          path: /tmp/fb-bins
-
-  publish-release:
-    if: ${{ github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    needs: [ select-tag, build-x86, build-arm ]
-    steps:
-      - name: Download x86 binaries artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: fb-bins-x86
-          path: /tmp/fb-bins-x86
-
-      - name: Download ARM binaries artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: fb-bins-arm
-          path: /tmp/fb-bins-arm
-
-      - name: Merge binaries
-        run: |
-          mkdir -p /tmp/fb-bins
-          cp -a /tmp/fb-bins-x86/. /tmp/fb-bins/
-          cp -a /tmp/fb-bins-arm/. /tmp/fb-bins/
 
       - name: Prepare release body
         run: |
