@@ -57,14 +57,22 @@ jobs:
     strategy:
       matrix:
         arch:
-          - name: x86
+          - name: i386
             runs_on: ubuntu-24.04
-            platforms: "linux/amd64,linux/386"
-            artifact: fb-bins-x86
-          - name: arm
+            platform: "linux/386"
+            artifact: fb-bins-i386
+          - name: amd64
+            runs_on: ubuntu-24.04
+            platform: "linux/amd64"
+            artifact: fb-bins-amd64
+          - name: armv7
             runs_on: ubuntu-24.04-arm
-            platforms: "linux/arm64,linux/arm/v7"
-            artifact: fb-bins-arm
+            platform: "linux/arm/v7"
+            artifact: fb-bins-armv7
+          - name: arm64
+            runs_on: ubuntu-24.04-arm
+            platform: "linux/arm64"
+            artifact: fb-bins-arm64
     steps:
       - uses: actions/checkout@v3
 
@@ -107,25 +115,35 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ select-tag, build ]
     steps:
-      - name: Download x86 binaries artifact
+      - name: Download i386 binaries artifact
         uses: actions/download-artifact@v4
         with:
-          name: fb-bins-x86
-          path: /tmp/fb-bins-x86
+          name: fb-bins-i386
+          path: /tmp/fb-bins-i386
 
-      - name: Download ARM binaries artifact
+      - name: Download amd64 binaries artifact
         uses: actions/download-artifact@v4
         with:
-          name: fb-bins-arm
-          path: /tmp/fb-bins-arm
+          name: fb-bins-amd64
+          path: /tmp/fb-bins-amd64
+
+      - name: Download armv7 binaries artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: fb-bins-armv7
+          path: /tmp/fb-bins-armv7
+
+      - name: Download arm64 binaries artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: fb-bins-arm64
+          path: /tmp/fb-bins-arm64
 
       - name: Merge binaries
         run: |
-          ls -alF /tmp/fb-bins-x86
-          ls -alF /tmp/fb-bins-arm
+          ls -alF /tmp/fb-bins-*
           mkdir -p /tmp/fb-bins
-          cp -a /tmp/fb-bins-x86/. /tmp/fb-bins/
-          cp -a /tmp/fb-bins-arm/. /tmp/fb-bins/
+          cp -a /tmp/fb-bins-*/. /tmp/fb-bins/
           ls -alF /tmp/fb-bins
 
       - name: Prepare release body
