@@ -80,19 +80,22 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and push images
         run: |
           docker buildx build . --file Dockerfile --load \
             --platform '${{ matrix.arch.platform }}' --pull --provenance false \
             --build-arg TAG="${{ needs.select-tag.outputs.build-tag }}" \
             -t "fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}"
+
+      - name: Export Docker image to file
+        run: |
+          docker save "fluent-bit-static:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}" -o "image_fluent-bit-static_${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}.tar"
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-${{ matrix.arch.name }}
+          path: "image_fluent-bit-static_${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}.tar"
 
       - name: Create bin directory
         run: mkdir -p /tmp/fb-bins
@@ -111,35 +114,23 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ select-tag, build ]
     steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Download i386 binaries artifact
         uses: actions/download-artifact@v4
         with:
-          name: fb-bins-i386
-          path: /tmp/fb-bins-i386
-
-      - name: Download amd64 binaries artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: fb-bins-amd64
-          path: /tmp/fb-bins-amd64
-
-      - name: Download armv7 binaries artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: fb-bins-armv7
-          path: /tmp/fb-bins-armv7
-
-      - name: Download arm64 binaries artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: fb-bins-arm64
-          path: /tmp/fb-bins-arm64
+          path: /tmp/artifacts
 
       - name: Merge binaries
         run: |
-          ls -alF /tmp/fb-bins-*
+          ls -alF /tmp/artifacts
           mkdir -p /tmp/fb-bins
-          cp -a /tmp/fb-bins-*/. /tmp/fb-bins/
+          cp /tmp/artifacts/fluent-bit* /tmp/fb-bins/
           ls -alF /tmp/fb-bins
 
       - name: Prepare release body
