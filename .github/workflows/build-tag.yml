@@ -129,7 +129,7 @@ jobs:
       - name: Create and push multi-architecture Docker image
         run: |
           # Load Docker images from artifact tar files
-          for file in /tmp/artifacts/docker-image-*.tar; do
+          for file in /tmp/artifacts/docker-image-*/*.tar; do
             docker load -i "$file"
           done
           # Create a multi-arch image manifest
