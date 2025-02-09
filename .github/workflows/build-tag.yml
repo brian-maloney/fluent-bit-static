@@ -85,9 +85,10 @@ jobs:
 
       - name: Build and push images
         run: |
-          docker buildx build . --file Dockerfile --platform '${{ matrix.arch.platform }}' --pull \
+          docker buildx build . --push --file Dockerfile \
+            --platform '${{ matrix.arch.platforms }}' --pull --provenance false \
             --build-arg TAG="${{ needs.select-tag.outputs.build-tag }}" \
-            -t "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}" --push
+            -t "ghcr.io/${{ github.repository }}:${{ needs.select-tag.outputs.build-tag }}-${{ matrix.arch.name }}"
 
   publish-release:
     runs-on: ubuntu-latest
