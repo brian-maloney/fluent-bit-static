@@ -10,15 +10,15 @@ on:
         required: false
 
 jobs:
-  keepalive:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
+  # keepalive:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
 
-      - name: Repository keepalive
-        uses: gautamkrishnar/keepalive-workflow@1.0.10
-        with:
-          committer_email: gkr@vond.net
+  #     - name: Repository keepalive
+  #       uses: gautamkrishnar/keepalive-workflow@1.0.10
+  #       with:
+  #         committer_email: gkr@vond.net
 
   select-tag:
     runs-on: ubuntu-latest
