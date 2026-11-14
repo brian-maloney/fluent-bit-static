@@ -16,6 +16,6 @@ Since the typical use case for Fluent Bit is to read locally and make outgoing c
 
 ## Known Limitations
 
-The `systemd` input plugin is not presently supported due to a lack of availability of a static libsystemd library in Debian.  This is documented in this Debian [bug report](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=915566) but was not added due to lack of demand.  In the future this support may be able to be added by compiling libsystemd as part of the build process.
+The `systemd` input plugin is supported from version `5.2.0` onward.  Debian does not ship a static libsystemd (see this Debian [bug report](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=915566)), so one is compiled from Debian's systemd source package as part of the build.  It reads journals written by newer versions of systemd, including fields compressed with zstd, xz or lz4.  Journal sealing (FSS) verification is not included.
 
-The WASM and Lua functionality are disabled from version `2.0.0` onward as they break static linking by causing the build process to attempt to link shared libraries into the static object.
+The Lua and WASM filters were disabled from version `2.0.0` through `5.1.x` and are enabled again from `5.2.0` onward.  Because the binary is statically linked, Lua scripts cannot `require` C modules or use the LuaJIT FFI to load shared libraries; pure Lua scripts work normally.  For the same reason, Fluent Bit's dynamically loaded plugins (`-e` / `plugins_file`, including Go plugins) are not usable.
